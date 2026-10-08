@@ -1,0 +1,6 @@
+.DS_Store
+node_modules/
+*.log
+
+# Tipi del motore: li scrive /plugin-types, cambiano a ogni versione di Claude Code
+**/.claude/types/
