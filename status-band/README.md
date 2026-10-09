@@ -8,7 +8,7 @@ Nell'app desktop:
 
 - **Riga del ramo**: il percorso attenuato e l'ultimo tratto in evidenza, così un nome lungo resta leggibile. A destra il contatore delle skill caricate, che apre l'elenco sotto il ramo, e la graffetta che copia l'ID della sessione.
 - **Scheda «Stato git»**: file modificati, commit da pushare, commit indietro rispetto al ramo di partenza, stash, tempo dall'ultimo fetch. Sotto, l'ultimo verdetto di una review e l'avviso «codice da rivedere».
-- **Scheda del modello**: il nome del modello fa da titolo, poi il contesto usato e l'effort, con le tacche che si animano mentre Claude lavora.
+- **Scheda del modello**: il nome del modello fa da titolo, poi il contesto usato e l'effort, con le tacche che tremolano come gelatina mentre Claude lavora, più in fretta e più ampie a ogni livello.
 - **Scheda «Limiti»**: finestra delle 5 ore, settimana e costo della chat.
 
 Nel terminale le stesse informazioni restano su righe di testo: lì non ci sono immagini.

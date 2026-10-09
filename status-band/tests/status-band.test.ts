@@ -96,7 +96,7 @@ test("nell'app la fascia e' a tre schede con gli anelli, nel terminale resta a r
 
   await desktop.unmount()
 
-  // Mentre Claude lavora un'onda attraversa le tacche
+  // Mentre Claude lavora le tacche accese tremolano come gelatina
   const working = await $.ui.mount({
     plugin: 'status-band',
     surface: 'desktop',
