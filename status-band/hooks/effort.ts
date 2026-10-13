@@ -1,51 +1,35 @@
-// Per livello, da low a ultracode: quanto dura un tremolio e quanto si deforma la barra. Piu' effort, piu' in
-// fretta e piu' ampio; low resta fermo
-const JELLY_SECONDS = [0, 1.6, 1.3, 1.05, 0.85, 0.68]
-const JELLY_AMOUNT = [0, 0.45, 0.6, 0.75, 0.9, 1]
-const SLOTS = 6
+import type { EffortStylePick } from '../types'
 
-// Il tremolio della gelatina: la barra si allunga, si schiaccia e si assesta, sempre poggiata sulla base
-const JELLY_HEIGHTS = [12, 16, 9, 14, 11, 12.5, 12]
-const JELLY_TIMES = '0;0.15;0.32;0.5;0.66;0.82;1'
-const JELLY_SPLINES = Array(JELLY_HEIGHTS.length - 1)
-  .fill('0.4 0 0.6 1')
-  .join(';')
+import { still } from './effort-kit'
+import { EFFORT_STYLES } from './effort-styles'
 
-function round(value: number) {
-  return Number(value.toFixed(2))
+export const EFFORT_STYLE_NAMES = Object.keys(EFFORT_STYLES)
+// Lo stile di prima del giro: lo usa la fascia finche' la chat non ne ha pescato uno
+const DEFAULT_STYLE = 'gelatina'
+
+// Un numero a caso fra 0 e 1, escluso l'1
+export function randomUnit() {
+  return (crypto.getRandomValues(new Uint32Array(1))[0] ?? 0) / 2 ** 32
 }
 
-// Una barra che tremola: altezza, larghezza e posizione cambiano insieme, cosi' la base resta ferma e la barra
-// si allarga quando si schiaccia, come una gelatina
-function jelly(slot: number, seconds: number, amount: number) {
-  const heights = JELLY_HEIGHTS.map(height => 12 + (height - 12) * amount)
-  const widths = heights.map(height => 5 * Math.sqrt(12 / height))
-  const timing = `keyTimes="${JELLY_TIMES}" calcMode="spline" keySplines="${JELLY_SPLINES}" dur="${seconds}s" begin="${round(slot * seconds * 0.1)}s" repeatCount="indefinite"`
-  const animate = (attribute: string, values: number[]) =>
-    `<animate attributeName="${attribute}" values="${values.map(round).join(';')}" ${timing}/>`
+// Lo stile dell'animazione per la chat: nella stessa conversazione resta quello gia' pescato (un reload della mod
+// non lo cambia), una conversazione nuova ne pesca un altro. Uno stile tolto dal giro viene ripescato
+export function pickEffortStyle(previous: EffortStylePick | null, conversation: string, random: number): EffortStylePick {
+  if (previous?.conversation === conversation && previous.style in EFFORT_STYLES) {
+    return previous
+  }
 
-  return (
-    animate('height', heights) +
-    animate('y', heights.map(height => 17 - height)) +
-    animate('width', widths) +
-    animate('x', widths.map(width => slot * 8 + (5 - width) / 2))
-  )
+  const index = Math.min(Math.floor(random * EFFORT_STYLE_NAMES.length), EFFORT_STYLE_NAMES.length - 1)
+
+  return { conversation, style: EFFORT_STYLE_NAMES[index] ?? DEFAULT_STYLE }
 }
 
 // Le tacche dell'effort per l'app: quelle accese nel colore del livello, le altre in grigio. Mentre Claude
-// lavora le accese tremolano come gelatina, una dopo l'altra
-export function effortSvg(rank: number, color: string, isMoving: boolean) {
-  const seconds = JELLY_SECONDS[rank - 1] ?? 0
-  const amount = JELLY_AMOUNT[rank - 1] ?? 0
-  let ticks = ''
-
-  for (let slot = 0; slot < SLOTS; slot += 1) {
-    const isOn = slot < rank
-    const wobble = isOn && isMoving && seconds > 0 ? jelly(slot, seconds, amount) : ''
-    const paint = isOn ? `fill="${color}"` : 'fill="#888888" fill-opacity="0.35"'
-
-    ticks += `<rect x="${slot * 8}" y="5" width="5" height="12" rx="1.5" ${paint}>${wobble}</rect>`
-  }
+// lavora le accese si animano nello stile della chat
+export function effortSvg(rank: number, color: string, isMoving: boolean, style: string = DEFAULT_STYLE) {
+  const chosen = EFFORT_STYLES[style] ?? EFFORT_STYLES[DEFAULT_STYLE]
+  const ticks =
+    isMoving && rank >= 2 && chosen !== undefined ? chosen.moving(rank, color) : (chosen?.still ?? still)(rank, color)
 
   // Per animarsi l'SVG viene disegnato in un riquadro a parte, e col tema scuro l'app gli mette dietro uno sfondo
   // bianco: dichiarando che segue il tema, lo sfondo torna trasparente

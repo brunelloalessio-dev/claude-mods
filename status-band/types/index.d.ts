@@ -17,6 +17,9 @@ export type GitStatus = {
 
 export type ContextFill = { tokens: number | null; window: number; percent: number | null }
 
+// Lo stile dell'animazione dell'effort pescato per una conversazione
+export type EffortStylePick = { conversation: string; style: string }
+
 declare module 'claude-code' {
   interface PluginState {
     'status-band': {
@@ -34,6 +37,7 @@ declare module 'claude-code' {
       context: ContextFill | null
       model: string | null
       effort: string | number | null
+      effortStyle: EffortStylePick | null
       isUltracode: boolean
       offsetMinutes: number | null
       now: number

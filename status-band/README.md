@@ -8,7 +8,7 @@ Nell'app desktop:
 
 - **Riga del ramo**: il percorso attenuato e l'ultimo tratto in evidenza, così un nome lungo resta leggibile. A destra il contatore delle skill caricate, che apre l'elenco sotto il ramo, e la graffetta che copia l'ID della sessione.
 - **Scheda «Stato git»**: file modificati, commit da pushare, commit indietro rispetto al ramo di partenza, stash, tempo dall'ultimo fetch. Sotto, l'ultimo verdetto di una review e l'avviso «codice da rivedere».
-- **Scheda del modello**: il nome del modello fa da titolo, poi il contesto usato e l'effort, con le tacche che tremolano come gelatina mentre Claude lavora, più in fretta e più ampie a ogni livello.
+- **Scheda del modello**: il nome del modello fa da titolo, poi il contesto usato e l'effort. Mentre Claude lavora le tacche si animano, più in fretta e più ampie a ogni livello; a low restano ferme. Ogni chat pesca a caso uno di 22 stili (gelatina, onda, pistoni, neon, supercar, radar e altri) e lo tiene fino alla fine, anche se la mod si ricarica.
 - **Scheda «Limiti»**: finestra delle 5 ore, settimana e costo della chat.
 
 Nel terminale le stesse informazioni restano su righe di testo: lì non ci sono immagini.
@@ -38,8 +38,9 @@ Su un repo senza questi agent e senza questa convenzione sui rami la fascia funz
 - `.claude-plugin/plugin.json`: nome, versione e contratto dei tipi
 - `hooks/register.tsx`: gli hook e il disegno della fascia
 - `hooks/ring.ts`, `hooks/effort.ts`, `hooks/icons.ts`: le immagini SVG (anelli, tacche dell'effort, icone)
+- `hooks/effort-styles.ts`: gli stili dell'animazione dell'effort; per toglierne uno dal giro basta cancellarlo da `EFFORT_STYLES`. `hooks/effort-kit.ts` ha i pezzi che usano
 - `types/index.d.ts`: la forma dei valori che la mod tiene nello stato della sessione
-- `tests/status-band.test.ts`: i test
+- `tests/status-band.test.ts`, `tests/effort.test.ts`: i test
 
 Le immagini SVG non leggono il tema dell'app: i loro colori sono fissi, scelti per reggere sia il chiaro sia lo scuro.
 

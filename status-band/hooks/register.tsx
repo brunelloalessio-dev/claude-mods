@@ -3,7 +3,7 @@ import type { EngineInterface, Register, RenderSurface, SessionUsage } from 'cla
 
 import type { ContextFill, GateReport, GitStatus, UsageLimit } from '../types'
 
-import { effortSvg } from './effort'
+import { effortSvg, pickEffortStyle, randomUnit } from './effort'
 import { BRANCH_ICON, SKILL_ICON, SPACER } from './icons'
 import { ringSvg } from './ring'
 
@@ -55,6 +55,7 @@ const chatUsd = atom({ plugin: 'status-band', key: 'chatUsd' } as const, null)
 const context = atom({ plugin: 'status-band', key: 'context' } as const, null)
 const model = atom({ plugin: 'status-band', key: 'model' } as const, null)
 const effort = atom({ plugin: 'status-band', key: 'effort' } as const, null)
+const effortStyle = atom({ plugin: 'status-band', key: 'effortStyle' } as const, null)
 const isUltracode = atom({ plugin: 'status-band', key: 'isUltracode' } as const, false)
 const offsetMinutes = atom({ plugin: 'status-band', key: 'offsetMinutes' } as const, null)
 const now = atom({ plugin: 'status-band', key: 'now' } as const, 0)
@@ -410,8 +411,12 @@ export const register: Register = on => {
     await update($, model, () => id)
     await refreshUltracode($)
 
+    // Ogni conversazione pesca a caso lo stile dell'animazione dell'effort; dopo un reload della mod tiene il suo
+    const sessionId = await $.session.id()
+    await update($, effortStyle, previous => pickEffortStyle(previous ?? null, sessionId, randomUnit()))
+
     // Dopo un reload della mod la conversazione e' la stessa: le skill gia' raccolte restano
-    if ((await read($, conversation)) !== (await $.session.id())) {
+    if ((await read($, conversation)) !== sessionId) {
       await reloadSkills($)
     }
 
@@ -565,6 +570,7 @@ export const register: Register = on => {
     const fill = await read($, context)
     const modelId = await read($, model)
     const level = await read($, effort)
+    const style = await read($, effortStyle)
     const isUltra = await read($, isUltracode)
     const offset = await read($, offsetMinutes)
     const nowMs = await read($, now)
@@ -932,7 +938,7 @@ export const register: Register = on => {
             <Box columnGap={1} alignItems="center">
               {rank === 0 ? null : (
                 <Svg
-                  source={effortSvg(rank, tickColor, e.props.isWorking)}
+                  source={effortSvg(rank, tickColor, e.props.isWorking, style?.style)}
                   alt={`Effort ${isUltra ? 'ultracode' : String(level)}`}
                   width={38}
                   height={18}
