@@ -8,7 +8,7 @@
     {
       "name": "status-band",
       "source": "./status-band",
-      "description": "Fascia sopra il prompt: ramo e stato git, esito delle review, modello, contesto, effort, limiti, costo e skill; nell'app a tre schede con anelli, nel terminale a righe"
+      "description": "Fascia sopra il prompt: ramo e stato git, worktree della chat, esito delle review, modello, contesto, effort, limiti, costo e skill; nell'app a tre schede con anelli, nel terminale a righe"
     }
   ]
 }

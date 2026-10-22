@@ -222,6 +222,113 @@ test("nell'app le skill sono un contatore accanto al ramo che apre una riga senz
   await ui.unmount()
 })
 
+// Un clone finto in /repo: due worktree per riportare un fix, uno di un'altra chat e uno dal nome quasi uguale
+const WORKTREES = [
+  ['/repo', 'features/alpha/progetto/sprint'],
+  ['/repo/.claude/worktrees/align-beta-copia-doc', 'bug/beta/progetto/copia-doc-from-main'],
+  ['/repo/.claude/worktrees/align-beta-copia-doc-2', 'bug/beta/progetto/copia-doc-2'],
+  ['/repo/.claude/worktrees/align-alpha-copia-doc', 'bug/alpha/progetto/copia-doc-from-main'],
+  ['/repo/.claude/worktrees/altra-chat', 'features/alpha/progetto/altro'],
+]
+  .map(([path, name]) => `worktree ${path}\nHEAD 1470e18\nbranch refs/heads/${name}\n`)
+  .join('\n')
+
+// Il ramo di beta e' partito da origin/beta; quello di alpha da un commit, quindi vale l'ambiente nel nome
+function fakeGit(argv: readonly string[]) {
+  const ref = argv.find(arg => arg.startsWith('refs/heads/')) ?? ''
+  const stdout = argv.includes('worktree')
+    ? WORKTREES
+    : argv.includes('--show-toplevel')
+      ? '/repo\n'
+      : ref.includes('/beta/')
+        ? 'commit: fix\nbranch: Created from origin/beta\n'
+        : ref.includes('/alpha/')
+          ? 'branch: Created from 1470e18892994d7f\n'
+          : null
+
+  return { exitCode: stdout === null ? 1 : 0, stdout: stdout ?? '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false }
+}
+
+test("nell'app i worktree di questa chat stanno in giallo accanto al ramo, piu' d'uno in una scheda", async ($, on) => {
+  engine(on, {})
+
+  let chat = 'chat-1'
+
+  on('session.id', () => ({ value: chat }))
+  on('tool.call', () => ({ result: {} }))
+  on('process.run', (_$, e) => ({ value: fakeGit(e.argv) }))
+
+  const texts = async (surface: (typeof SURFACES)[number]) => {
+    const ui = await $.ui.mount({ plugin: 'status-band', surface, ...BAND })
+    const found = await ui.findAll({ type: 'Text' })
+
+    return { ui, found, exact: (text: string) => found.find(item => item.text === text) }
+  }
+
+  // Elencare i worktree non li fa diventare della chat: senza worktree nominati la fascia non ne mostra
+  await $.tool.call({ tool: 'Bash', command: 'git worktree list' })
+
+  const none = await texts('desktop')
+
+  expect(await none.ui.find({ key: 'worktrees' })).toBeUndefined()
+  expect((await none.ui.findAll({ type: 'Svg' })).some(found => found.props.alt === 'Worktree')).toBe(false)
+  expect(none.found.some(found => found.text.includes('copia-doc'))).toBe(false)
+
+  await none.ui.unmount()
+
+  // Uno solo: nome in giallo e ramo di partenza accanto al ramo, niente contatore
+  await $.tool.call({ tool: 'Bash', command: 'git -C /repo/.claude/worktrees/align-beta-copia-doc status' })
+
+  const one = await texts('desktop')
+
+  expect(one.exact('align-beta-copia-doc')?.props.color).toBe('warning')
+  expect(one.exact(' da beta')).toBeDefined()
+  expect(await one.ui.find({ key: 'worktrees' })).toBeUndefined()
+
+  await one.ui.unmount()
+
+  // Il secondo, da un percorso relativo: contatore giallo, e la scheda si apre solo a richiesta
+  await $.tool.call({ tool: 'Read', file_path: '../.claude/worktrees/align-alpha-copia-doc/app/package.json' })
+
+  const two = await texts('desktop')
+
+  expect((await two.ui.find({ key: 'worktrees' }))?.text).toBe('2 worktree ▸')
+  expect(two.exact('Worktree')).toBeUndefined()
+
+  await two.ui.press({ key: 'worktrees' })
+
+  const open = (await two.ui.findAll({ type: 'Text' })).map(found => found.text)
+
+  expect((await two.ui.find({ key: 'worktrees' }))?.text).toBe('2 worktree ▾')
+  expect(open).toContain('Worktree')
+  expect(open).toContain('da beta')
+  expect(open).toContain('da alpha')
+  expect(open).toContain('copia-doc-from-main')
+  // Quello dal nome quasi uguale e quello dell'altra chat non sono stati nominati
+  expect(open.some(text => text.includes('copia-doc-2') || text.includes('altra-chat'))).toBe(false)
+
+  await two.ui.unmount()
+
+  // Nel terminale stanno tutti sulla riga del ramo
+  const terminal = await texts('terminal')
+
+  expect(terminal.found.map(found => found.text).join('|')).toContain(
+    'wt align-beta-copia-doc da beta, align-alpha-copia-doc da alpha',
+  )
+
+  await terminal.ui.unmount()
+
+  // Una conversazione nuova riparte senza worktree
+  chat = 'chat-2'
+  await $.tool.call({ tool: 'Bash', command: 'git worktree list' })
+
+  const fresh = await texts('desktop')
+
+  expect(fresh.found.some(found => found.text.includes('copia-doc'))).toBe(false)
+
+  await fresh.ui.unmount()
+})
+
 test("il 📎 copia l'ID della sessione: nell'app con pbcopy, nel terminale con la copia del motore", async ($, on) => {
   engine(on, {})
   mock.env(on, { CLAUDE_CODE_HOST_SESSION_ID: 'local_abc' })

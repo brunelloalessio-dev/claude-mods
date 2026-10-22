@@ -1,7 +1,7 @@
 {
   "name": "status-band",
-  "version": "0.3.0",
-  "description": "Fascia sopra il prompt: ramo e stato git, esito delle review, modello, contesto, effort, limiti, costo e skill; nell'app a tre schede con anelli, nel terminale a righe. Derivata da fascia-gate di Alessandro Pavan",
+  "version": "0.4.0",
+  "description": "Fascia sopra il prompt: ramo e stato git, worktree della chat, esito delle review, modello, contesto, effort, limiti, costo e skill; nell'app a tre schede con anelli, nel terminale a righe. Derivata da fascia-gate di Alessandro Pavan",
   "author": {
     "name": "Alessio Brunello"
   },

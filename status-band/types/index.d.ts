@@ -20,6 +20,16 @@ export type ContextFill = { tokens: number | null; window: number; percent: numb
 // Lo stile dell'animazione dell'effort pescato per una conversazione
 export type EffortStylePick = { conversation: string; style: string }
 
+// Un worktree del clone, escluso il checkout principale e quello della sessione: percorso assoluto, percorso
+// relativo alla radice del clone (null se sta fuori) e ramo (null se staccato)
+export type RepoWorktree = { path: string; relative: string | null; branch: string | null }
+
+// I worktree che una conversazione ha nominato nei suoi tool, per percorso assoluto
+export type ChatWorktreePaths = { conversation: string; paths: string[] }
+
+// Un worktree di questa chat come lo mostra la fascia: cartella, ramo e ramo da cui e' partito (alpha, beta...)
+export type ChatWorktree = { folder: string; branch: string | null; base: string | null }
+
 declare module 'claude-code' {
   interface PluginState {
     'status-band': {
@@ -46,6 +56,10 @@ declare module 'claude-code' {
       repoSkills: string[]
       conversation: string | null
       isSkillsOpen: boolean
+      repoWorktrees: RepoWorktree[]
+      chatWorktreePaths: ChatWorktreePaths | null
+      worktrees: ChatWorktree[]
+      isWorktreesOpen: boolean
     }
   }
 }

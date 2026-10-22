@@ -17,5 +17,16 @@ export const SKILL_ICON = [
   '</svg>',
 ].join('')
 
+// La forchetta dei worktree accanto al ramo: due rami che partono da un tronco, nel giallo degli avvisi degli
+// anelli (#d29922), che regge chiaro e scuro come il testo giallo accanto
+export const WORKTREE_ICON = [
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="#d29922" stroke-width="1.5" stroke-linecap="round">',
+  '<circle cx="4" cy="3.25" r="1.75"/>',
+  '<circle cx="12" cy="3.25" r="1.75"/>',
+  '<circle cx="8" cy="12.75" r="1.75"/>',
+  '<path d="M4 5v1.25c0 1.1.9 2 2 2h4c1.1 0 2-.9 2-2V5M8 8.25V11"/>',
+  '</svg>',
+].join('')
+
 // Uno stacco di pochi pixel fra la riga del ramo e le schede: i margini dei riquadri vanno a righe intere
 export const SPACER = '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="5"></svg>'

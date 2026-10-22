@@ -1,10 +1,10 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, RenderSurface, SessionUsage } from 'claude-code'
 
-import type { ContextFill, GateReport, GitStatus, UsageLimit } from '../types'
+import type { ChatWorktree, ContextFill, GateReport, GitStatus, RepoWorktree, UsageLimit } from '../types'
 
 import { effortSvg, pickEffortStyle, randomUnit } from './effort'
-import { BRANCH_ICON, SKILL_ICON, SPACER } from './icons'
+import { BRANCH_ICON, SKILL_ICON, SPACER, WORKTREE_ICON } from './icons'
 import { ringSvg } from './ring'
 
 // I subagent di review del repo: da adattare al proprio. I secondi sono quelli che coprono le modifiche al codice
@@ -64,6 +64,10 @@ const recentSkills = atom({ plugin: 'status-band', key: 'recentSkills' } as cons
 const repoSkills = atom({ plugin: 'status-band', key: 'repoSkills' } as const, [])
 const conversation = atom({ plugin: 'status-band', key: 'conversation' } as const, null)
 const isSkillsOpen = atom({ plugin: 'status-band', key: 'isSkillsOpen' } as const, false)
+const repoWorktrees = atom({ plugin: 'status-band', key: 'repoWorktrees' } as const, [])
+const chatWorktreePaths = atom({ plugin: 'status-band', key: 'chatWorktreePaths' } as const, null)
+const worktrees = atom({ plugin: 'status-band', key: 'worktrees' } as const, [])
+const isWorktreesOpen = atom({ plugin: 'status-band', key: 'isWorktreesOpen' } as const, false)
 
 // I rami di ambiente da cui partono i nostri: stanno al secondo posto nel nome (<motivo>/<ambiente>/...)
 const BASES = ['alpha', 'beta', 'main']
@@ -159,6 +163,8 @@ async function refreshGit($: EngineInterface) {
     await update($, branch, () => null)
     await update($, worktree, () => null)
     await update($, git, () => null)
+    await update($, repoWorktrees, () => [])
+    await update($, worktrees, () => [])
 
     return
   }
@@ -222,6 +228,134 @@ async function refreshGit($: EngineInterface) {
   await update($, branch, () => head)
   await update($, worktree, () => folder)
   await update($, git, () => state)
+  await refreshWorktrees($, top)
+}
+
+// I worktree del clone come li elenca git: il primo e' il checkout principale; un «prunable» ha perso la cartella
+function parseWorktrees(stdout: string) {
+  return stdout
+    .split(/\n\s*\n/)
+    .map(block => ({
+      path: /^worktree (.+)$/m.exec(block)?.[1]?.trim() ?? '',
+      branch: /^branch refs\/heads\/(.+)$/m.exec(block)?.[1]?.trim() ?? null,
+      isPrunable: /^prunable\b/m.test(block),
+    }))
+    .filter(found => found.path !== '')
+}
+
+// I worktree in cui questa chat puo' lavorare: tutti tranne il checkout principale e quello della sessione
+async function refreshWorktrees($: EngineInterface, top?: string) {
+  const current =
+    top ??
+    (await $.process.run(['git', 'rev-parse', '--path-format=absolute', '--show-toplevel'])).stdout.trim()
+  const list = await $.process.run(['git', 'worktree', 'list', '--porcelain'])
+  const [main, ...linked] = list.exitCode === 0 ? parseWorktrees(list.stdout) : []
+  const others: RepoWorktree[] = linked
+    .filter(found => !found.isPrunable && found.path !== current)
+    .map(found => ({
+      path: found.path,
+      relative:
+        main !== undefined && found.path.startsWith(`${main.path}/`) ? found.path.slice(main.path.length + 1) : null,
+      branch: found.branch,
+    }))
+
+  await update($, repoWorktrees, () => others)
+  await showChatWorktrees($)
+}
+
+// Da dove e' partito il ramo di un worktree: il ref che git scrive alla creazione («branch: Created from
+// origin/beta»), ridotto all'ultimo tratto; se e' partito da un commit o da HEAD, l'ambiente nel nome del ramo
+async function worktreeBase($: EngineInterface, name: string | null) {
+  if (name === null) {
+    return null
+  }
+
+  const log = await $.process.run(['git', 'reflog', 'show', '--format=%gs', `refs/heads/${name}`, '--'])
+  const created = log.exitCode === 0 ? /^branch: Created from (.+)$/m.exec(log.stdout)?.[1]?.trim() : undefined
+
+  if (created !== undefined && created !== 'HEAD' && !/^[0-9a-f]{7,40}$/i.test(created)) {
+    return created.split('/').pop() ?? null
+  }
+
+  const origin = name.split('/')[1]
+
+  return origin !== undefined && BASES.includes(origin) ? origin : null
+}
+
+// I percorsi dei worktree nominati da questa conversazione; quelli di una conversazione finita non valgono piu'
+async function chatPaths($: EngineInterface) {
+  const stored = await read($, chatWorktreePaths)
+
+  return stored !== null && stored.conversation === (await $.session.id()) ? stored.paths : []
+}
+
+// Un percorso nominato nel testo per intero, non come inizio o fine di un altro (wt e wt-2)
+function names(text: string, needle: string) {
+  for (let at = text.indexOf(needle); at >= 0; at = text.indexOf(needle, at + 1)) {
+    if (!/[\w-]/.test(text.charAt(at - 1)) && !/[\w.-]/.test(text.charAt(at + needle.length))) {
+      return true
+    }
+  }
+
+  return false
+}
+
+// I worktree che un testo nomina, per percorso assoluto o relativo alla radice del clone (cd .claude/worktrees/x).
+// Un relativo senza barre (una cartella in radice) sarebbe una parola qualsiasi: vale solo l'assoluto
+function namedWorktrees(text: string, others: readonly RepoWorktree[]) {
+  const plain = text.replace(/\\\\/g, '/')
+
+  return others
+    .filter(
+      found => names(plain, found.path) || (found.relative?.includes('/') === true && names(plain, found.relative)),
+    )
+    .map(found => found.path)
+}
+
+// I worktree di questa chat nell'ordine in cui li ha nominati, come li disegna la fascia
+async function showChatWorktrees($: EngineInterface) {
+  const others = await read($, repoWorktrees)
+  const shown: ChatWorktree[] = []
+
+  for (const path of await chatPaths($)) {
+    const found = others.find(other => other.path === path)
+
+    if (found !== undefined) {
+      shown.push({
+        folder: found.path.split(/[\\/]/).pop() ?? found.path,
+        branch: found.branch,
+        base: await worktreeBase($, found.branch),
+      })
+    }
+  }
+
+  await update($, worktrees, () => shown)
+}
+
+// Aggiunge i worktree nominati ai worktree di questa chat; dice se ce n'erano di nuovi
+async function addChatWorktrees($: EngineInterface, paths: readonly string[]) {
+  const id = await $.session.id()
+  const known = await chatPaths($)
+  const added = paths.filter(path => !known.includes(path))
+
+  if (added.length > 0) {
+    await update($, chatWorktreePaths, () => ({ conversation: id, paths: [...new Set([...known, ...added])] }))
+  }
+
+  return added.length > 0
+}
+
+// I worktree gia' nominati dai tool di questa conversazione: dopo un reload della mod o una ripresa. I messaggi
+// portano solo i tool del loop principale; quelli dei subagent si vedono solo da quando la mod gira
+async function rescanChatWorktrees($: EngineInterface) {
+  const others = await read($, repoWorktrees)
+  const rows = await $.session.messages()
+  const found = rows
+    .flatMap(row => row.toolUses)
+    .flatMap(use => namedWorktrees(JSON.stringify(use.input), others))
+
+  await addChatWorktrees($, found)
+  await showChatWorktrees($)
 }
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
@@ -420,6 +554,9 @@ export const register: Register = on => {
       await reloadSkills($)
     }
 
+    // I worktree li tiene la conversazione: dopo un reload restano, e si aggiungono quelli dei messaggi
+    await rescanChatWorktrees($)
+
     // Rinnovi, stato git e ultracode avanzano anche a sessione ferma (commit e push dal terminale, selettore
     // dell'app); modello ed effort no: arrivano solo con la richiesta successiva
     $.clock.every(60_000, () => void Promise.all([tick($), refreshGit($), refreshUltracode($)]))
@@ -447,6 +584,7 @@ export const register: Register = on => {
   on('prompt.submit', async ($, e, next) => {
     if ((await read($, conversation)) !== (await $.session.id())) {
       await reloadSkills($)
+      await rescanChatWorktrees($)
     }
 
     await update($, recentSkills, () => [])
@@ -542,6 +680,35 @@ export const register: Register = on => {
     return done
   })
 
+  // Un tool che nomina un worktree lo fa diventare di questa chat: un cd, un git -C, un file da leggere o da
+  // scrivere, il percorso che EnterWorktree o un agent isolato restituiscono. Dell'esito conta solo quel percorso:
+  // l'output di un git worktree list nomina anche i worktree delle altre chat
+  on('tool.call', async ($, e, next) => {
+    const done = await next(e)
+
+    if (done.deny !== undefined) {
+      return done
+    }
+
+    const input = JSON.stringify(e)
+    const result: unknown = done.result
+    const created =
+      typeof result === 'object' && result !== null && 'worktreePath' in result && typeof result.worktreePath === 'string'
+        ? result.worktreePath
+        : ''
+
+    // Un worktree appena creato o tolto cambia l'elenco del clone: va riletto prima di cercarvi i nomi
+    if (/worktree/i.test(input) || created !== '') {
+      await refreshWorktrees($)
+    }
+
+    if (await addChatWorktrees($, namedWorktrees(`${input}\n${created}`, await read($, repoWorktrees)))) {
+      await showChatWorktrees($)
+    }
+
+    return done
+  })
+
   // Una ripresa con SendMessage: la review gira di nuovo
   on('tool.call', { tool: 'SendMessage' }, async ($, e, next) => {
     const to = (e as unknown as Record<string, unknown>).to
@@ -578,6 +745,8 @@ export const register: Register = on => {
     const newSkills = await read($, recentSkills)
     const fromRepo = await read($, repoSkills)
     const isOpen = await read($, isSkillsOpen)
+    const chatWorktrees = await read($, worktrees)
+    const isWorktreeListOpen = await read($, isWorktreesOpen)
     const { Box, Button, Text } = $.ui.resolve(e)
     const color =
       last === null ? undefined : last.isBlocking ? 'error' : CLEAN_VERDICTS.includes(last.verdict) ? 'success' : 'warning'
@@ -586,6 +755,8 @@ export const register: Register = on => {
 
     // Il worktree solo se il branch non ne porta gia' il nome, senza il suffisso casuale dell'app
     const wt = folder === null || name?.split('/').pop() === folder ? null : folder.replace(/-[0-9a-f]{6}$/, '')
+    // I worktree di questa chat accanto al ramo, col ramo da cui sono partiti
+    const from = (found: ChatWorktree) => (found.base === null ? '' : ` da ${found.base}`)
     // L'ultracode e' la sesta tacca, dopo max, come nel selettore dell'app
     const steps = isUltra
       ? { full: '▮'.repeat(EFFORT_CELLS), empty: '', color: ULTRACODE_COLOR }
@@ -719,8 +890,15 @@ export const register: Register = on => {
           <Button key="session-id" plain dimColor label="📎" onPress={press => void copySessionId($, press.surface)} />
           <Box flexShrink={1}>
             <Text wrap="truncate-end">
-              {wt === null ? null : <Text dimColor>wt {wt} · </Text>}
+              {wt === null ? null : <Text color="warning">wt {wt} · </Text>}
               <Text dimColor>{name ?? 'nessun branch'}</Text>
+              {/* Nel terminale niente bottone: i worktree della chat stanno tutti sulla riga, ciascuno col suo ramo di partenza */}
+              {chatWorktrees.length === 0 ? null : (
+                <Text color="warning">
+                  {' · wt '}
+                  {chatWorktrees.map(found => `${found.folder}${from(found)}`).join(', ')}
+                </Text>
+              )}
               {work === null ? null : pending.length > 0 ? (
                 <Text color="warning"> · {pending.join(' · ')}</Text>
               ) : (
@@ -843,9 +1021,9 @@ export const register: Register = on => {
         <Box columnGap={1} paddingX={1} alignItems="center">
           <Svg source={BRANCH_ICON} alt="Ramo" width={14} height={14} />
           {/* minWidth a zero: senza, un nome lunghissimo allargherebbe la riga invece di troncarsi */}
-          <Box flexGrow={1} flexShrink={1} minWidth={0}>
+          <Box flexShrink={1} minWidth={0}>
             <Text wrap="truncate-end">
-              {wt === null ? null : <Text dimColor>wt {wt} · </Text>}
+              {wt === null ? null : <Text color="warning">wt {wt} · </Text>}
               {name === null ? (
                 <Text dimColor>nessun branch</Text>
               ) : (
@@ -855,6 +1033,25 @@ export const register: Register = on => {
                 </Text>
               )}
             </Text>
+          </Box>
+          {/* Subito dopo il ramo i worktree di questa chat, in giallo: uno col nome e il ramo di partenza, piu' d'uno
+              un contatore che apre la scheda Worktree. Il riquadro riempie la riga e porta skill e 📎 a destra; a
+              cedere spazio e' il ramo, non i worktree */}
+          <Box flexGrow={1} flexShrink={0} columnGap={1} alignItems="center">
+            {chatWorktrees.length === 0 ? null : <Svg source={WORKTREE_ICON} alt="Worktree" width={14} height={14} />}
+            {chatWorktrees.length === 1 && chatWorktrees[0] !== undefined ? (
+              <Text>
+                <Text color="warning">{chatWorktrees[0].folder}</Text>
+                <Text dimColor>{from(chatWorktrees[0])}</Text>
+              </Text>
+            ) : null}
+            {chatWorktrees.length > 1 ? (
+              <Button key="worktrees" plain onPress={() => void update($, isWorktreesOpen, open => !open)}>
+                <Text color="warning">
+                  {chatWorktrees.length} worktree {isWorktreeListOpen ? '▾' : '▸'}
+                </Text>
+              </Button>
+            ) : null}
           </Box>
           {/* Il contatore delle skill sta accanto alla graffetta: l'elenco si apre sotto il ramo solo a richiesta */}
           {loadedSkills.length === 0 ? null : (
@@ -888,6 +1085,33 @@ export const register: Register = on => {
           </Box>
         ) : null}
         <Svg source={SPACER} alt="Separatore" width={1} height={5} />
+        {/* La scheda Worktree sopra le altre tre, aperta dal contatore: da dove parte, cartella, ultimo tratto del
+            ramo. Con un worktree solo non serve, nome e partenza stanno gia' accanto al ramo */}
+        {isWorktreeListOpen && chatWorktrees.length > 1 ? (
+          <Box flexDirection="column">
+            <Box {...frame}>
+              <Text bold>Worktree</Text>
+              <Box columnGap={2}>
+                <Box flexDirection="column" flexShrink={0}>
+                  {chatWorktrees.map(found => (
+                    <Text dimColor>{found.base === null ? '—' : `da ${found.base}`}</Text>
+                  ))}
+                </Box>
+                <Box flexDirection="column" flexShrink={0}>
+                  {chatWorktrees.map(found => (
+                    <Text color="warning">{found.folder}</Text>
+                  ))}
+                </Box>
+                <Box flexDirection="column" flexShrink={1} minWidth={0}>
+                  {chatWorktrees.map(found => (
+                    <Text wrap="truncate-end">{found.branch === null ? '(detached)' : found.branch.split('/').pop()}</Text>
+                  ))}
+                </Box>
+              </Box>
+            </Box>
+            <Svg source={SPACER} alt="Separatore" width={1} height={5} />
+          </Box>
+        ) : null}
         <Box columnGap={1}>
           <Box {...frame}>
             <Text bold>Stato git</Text>

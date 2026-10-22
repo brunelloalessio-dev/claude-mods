@@ -1,12 +1,13 @@
 # status-band
 
-Ridisegna la fascia sopra il prompt di Claude Code: ramo, stato git, esito delle review, modello, contesto, effort, limiti e skill. Deriva da `fascia-gate` di Alessandro Pavan.
+Ridisegna la fascia sopra il prompt di Claude Code: ramo, stato git, worktree della chat, esito delle review, modello, contesto, effort, limiti e skill. Deriva da `fascia-gate` di Alessandro Pavan.
 
 ## Cosa mostra
 
 Nell'app desktop:
 
 - **Riga del ramo**: il percorso attenuato e l'ultimo tratto in evidenza, così un nome lungo resta leggibile. A destra il contatore delle skill caricate, che apre l'elenco sotto il ramo, e la graffetta che copia l'ID della sessione.
+- **Worktree della chat**: accanto al ramo, in giallo, il worktree in cui sta lavorando la chat, col ramo da cui è partito (`da beta`). Con più worktree, per esempio mentre si riporta un fix su più ambienti, c'è un contatore (`3 worktree ▸`) che apre sopra le schede la scheda «Worktree»: per ciascuno il ramo di partenza, la cartella e l'ultimo tratto del ramo. Sono della chat i worktree che i suoi tool hanno nominato (un `cd`, un `git -C`, un file letto o scritto, `EnterWorktree`); quelli aperti da altre chat non compaiono. Il ramo di partenza è quello che git scrive alla creazione del ramo (`Created from origin/beta`), oppure, se il ramo è partito da un commit, l'ambiente nel suo nome. Senza worktree non compare nulla.
 - **Scheda «Stato git»**: file modificati, commit da pushare, commit indietro rispetto al ramo di partenza, stash, tempo dall'ultimo fetch. Sotto, l'ultimo verdetto di una review e l'avviso «codice da rivedere».
 - **Scheda del modello**: il nome del modello fa da titolo, poi il contesto usato e l'effort. Mentre Claude lavora le tacche si animano, più in fretta e più ampie a ogni livello; a low restano ferme. Ogni chat pesca a caso uno di 22 stili (gelatina, onda, pistoni, neon, supercar, radar e altri) e lo tiene fino alla fine, anche se la mod si ricarica.
 - **Scheda «Limiti»**: finestra delle 5 ore, settimana e costo della chat.
