@@ -82,16 +82,16 @@ test("nell'app la fascia e' a tre schede con gli anelli, nel terminale resta a r
   const rings = svgs.filter(source => source.includes('<circle'))
 
   expect(rings.length).toBe(3)
-  expect(rings.filter(source => source.includes('#f85149')).length).toBe(1)
+  expect(rings.filter(source => source.includes('#e34948')).length).toBe(1)
   // La percentuale e' scritta dentro l'anello
   expect(rings.some(source => source.includes('>42<'))).toBe(true)
   expect(rings.some(source => source.includes('>86<'))).toBe(true)
 
-  // L'effort xhigh: quattro tacche accese nel quarto blu, ferme finche' Claude non lavora
+  // L'effort xhigh: quattro tacche accese nell'arancio Claude, ferme finche' Claude non lavora
   const ticks = svgs.filter(source => source.includes('<rect'))
 
   expect(ticks.length).toBe(1)
-  expect(ticks[0]?.split('#2f78f5').length).toBe(5)
+  expect(ticks[0]?.split('#d97757').length).toBe(5)
   expect(ticks[0]).not.toContain('<animate')
 
   await desktop.unmount()
@@ -165,7 +165,7 @@ test('un verdetto bloccante del supervisor si vede in rosso', async ($, on) => {
   const ui = await $.ui.mount({ plugin: 'status-band', surface: 'desktop', ...BAND })
   const found = await ui.findAll({ type: 'Text', text: 'supervisor BLOCCATO' })
 
-  expect(found.map(text => text.props.color)).toContain('error')
+  expect(found.map(text => text.props.color)).toContain('#e34948')
 
   await ui.unmount()
 })
@@ -200,7 +200,7 @@ test("nell'app le skill sono un contatore accanto al ramo che apre una riga senz
   expect((await ui.find({ key: 'skills' }))?.text).toBe('2 skill ● ▾')
   expect(await sparkles()).toBe(1)
 
-  // Quella di progetto in azzurro, quella del plugin col prefisso attenuato, nessuna con lo sfondo
+  // Quella di progetto in arancio, quella del plugin col prefisso attenuato, nessuna con lo sfondo
   // La ricerca per testo trova anche il Text che li contiene: serve quello col testo esatto
   const texts = await ui.findAll({ type: 'Text' })
   const repo = texts.find(found => found.text === 'house-style')
@@ -210,10 +210,10 @@ test("nell'app le skill sono un contatore accanto al ramo che apre una riga senz
   expect(repo).toBeDefined()
   expect(plugin).toBeDefined()
 
-  expect(repo?.props.color).toBe('#3d95ff')
+  expect(repo?.props.color).toBe('#d97757')
   expect(repo?.props.backgroundColor).toBeUndefined()
   expect(plugin?.props.color).toBeUndefined()
-  expect(prefix?.props.color).toBe('#8a8a8a')
+  expect(prefix?.props.color).toBe('#898781')
 
   await ui.press({ key: 'skills' })
 
@@ -249,7 +249,7 @@ function fakeGit(argv: readonly string[]) {
   return { exitCode: stdout === null ? 1 : 0, stdout: stdout ?? '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false }
 }
 
-test("nell'app i worktree di questa chat stanno in giallo accanto al ramo, piu' d'uno in una scheda", async ($, on) => {
+test("nell'app i worktree di questa chat stanno in arancio accanto al ramo, piu' d'uno in una scheda", async ($, on) => {
   engine(on, {})
 
   let chat = 'chat-1'
@@ -276,18 +276,18 @@ test("nell'app i worktree di questa chat stanno in giallo accanto al ramo, piu' 
 
   await none.ui.unmount()
 
-  // Uno solo: nome in giallo e ramo di partenza accanto al ramo, niente contatore
+  // Uno solo: nome in arancio e ramo di partenza accanto al ramo, niente contatore
   await $.tool.call({ tool: 'Bash', command: 'git -C /repo/.claude/worktrees/align-beta-copia-doc status' })
 
   const one = await texts('desktop')
 
-  expect(one.exact('align-beta-copia-doc')?.props.color).toBe('warning')
+  expect(one.exact('align-beta-copia-doc')?.props.color).toBe('#d97757')
   expect(one.exact(' da beta')).toBeDefined()
   expect(await one.ui.find({ key: 'worktrees' })).toBeUndefined()
 
   await one.ui.unmount()
 
-  // Il secondo, da un percorso relativo: contatore giallo, e la scheda si apre solo a richiesta
+  // Il secondo, da un percorso relativo: contatore in arancio, e la scheda si apre solo a richiesta
   await $.tool.call({ tool: 'Read', file_path: '../.claude/worktrees/align-alpha-copia-doc/app/package.json' })
 
   const two = await texts('desktop')

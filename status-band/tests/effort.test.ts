@@ -1,8 +1,9 @@
 import { expect, test } from 'claude-code/testing'
 
 import { EFFORT_STYLE_NAMES, effortSvg, pickEffortStyle } from '../hooks/effort'
+import { EFFORT_COLORS, ULTRACODE_COLOR } from '../hooks/palette'
 
-const COLORS = ['#7cc8ff', '#5aafff', '#3d95ff', '#2f78f5', '#2d5be3', '#a970ff']
+const COLORS = [...EFFORT_COLORS, ULTRACODE_COLOR]
 
 test('il giro ha i 22 stili scelti, gelatina compresa', async () => {
   expect(EFFORT_STYLE_NAMES.length).toBe(22)
@@ -54,5 +55,5 @@ test('lo stile resta lo stesso nella stessa chat e cambia in una chat nuova', as
 })
 
 test('uno stile sconosciuto ricade sulla gelatina', async () => {
-  expect(effortSvg(4, '#2f78f5', true, 'sparito')).toBe(effortSvg(4, '#2f78f5', true, 'gelatina'))
+  expect(effortSvg(4, '#d97757', true, 'sparito')).toBe(effortSvg(4, '#d97757', true, 'gelatina'))
 })

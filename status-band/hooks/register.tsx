@@ -5,6 +5,8 @@ import type { ChatWorktree, ContextFill, GateReport, GitStatus, RepoWorktree, Us
 
 import { effortSvg, pickEffortStyle, randomUnit } from './effort'
 import { BRANCH_ICON, SKILL_ICON, SPACER, WORKTREE_ICON } from './icons'
+import { CLAY, EFFORT_COLORS, OTHER_CHIP, REPO_CHIP, TONES, ULTRACODE_COLOR, WARM_GRAY } from './palette'
+import type { Tone } from './palette'
 import { ringSvg } from './ring'
 
 // I subagent di review del repo: da adattare al proprio. I secondi sono quelli che coprono le modifiche al codice
@@ -23,23 +25,19 @@ const WINDOWS = [
 ] as const
 const DAYS = ['dom', 'lun', 'mar', 'mer', 'gio', 'ven', 'sab']
 
-// Le tacche come il selettore dell'app: cinque livelli dall'azzurro al blu, poi l'ultracode in viola
+// Le tacche come il selettore dell'app: cinque livelli, poi l'ultracode; i colori stanno nella palette
 const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max']
-const EFFORT_COLORS = ['#7cc8ff', '#5aafff', '#3d95ff', '#2f78f5', '#2d5be3']
-const ULTRACODE_COLOR = '#a970ff'
 const EFFORT_CELLS = EFFORTS.length + 1
 
 // Le celle delle barre come statuspane
 const BAR_CELLS = 8
 
-// Le etichette delle skill: del progetto (.claude/skills) in azzurro, di plugin e integrate in grigio
-const REPO_CHIP = { backgroundColor: '#1f3b5c', color: '#a8d4ff' }
-const OTHER_CHIP = { backgroundColor: '#383838', color: '#bdbdbd' }
-const PREFIX_COLOR = '#8a8a8a'
-// Nell'app l'elenco delle skill e' una riga senza sfondo: l'azzurro di quelle di progetto deve reggere chiaro e scuro
-const REPO_SKILL_COLOR = '#3d95ff'
+// Il prefisso del plugin delle skill, attenuato
+const PREFIX_COLOR = WARM_GRAY
+// Nell'app l'elenco delle skill e' una riga senza sfondo: l'arancio di quelle di progetto regge chiaro e scuro
+const REPO_SKILL_COLOR = CLAY
 
-// Verdetti puliti: ✓ in verde; gli altri non bloccanti ⚠ in giallo, i bloccanti ✗ in rosso
+// Verdetti puliti: ✓ nell'arancio delle cose in ordine; gli altri non bloccanti ⚠ in giallo, i bloccanti ✗ in rosso
 const CLEAN_VERDICTS = ['APPROVATO']
 
 const branch = atom({ plugin: 'status-band', key: 'branch' } as const, null)
@@ -500,7 +498,7 @@ function modelLabel(id: string) {
   return `${family.charAt(0).toUpperCase()}${family.slice(1).toLowerCase()}${version}`
 }
 
-const percentColor = (p: number) => (p >= 80 ? 'error' : p >= 50 ? 'warning' : 'success')
+const percentColor = (p: number): Tone => (p >= 80 ? 'error' : p >= 50 ? 'warning' : 'success')
 
 // Celle piene e vuote di una barra: la traccia vuota ha lo stesso segno, attenuato
 function cells(percent: number) {
@@ -748,10 +746,11 @@ export const register: Register = on => {
     const chatWorktrees = await read($, worktrees)
     const isWorktreeListOpen = await read($, isWorktreesOpen)
     const { Box, Button, Text } = $.ui.resolve(e)
-    const color =
+    const tone: Tone | undefined =
       last === null ? undefined : last.isBlocking ? 'error' : CLEAN_VERDICTS.includes(last.verdict) ? 'success' : 'warning'
+    const color = tone === undefined ? undefined : TONES[tone]
     // ⚠ con il selettore di testo, altrimenti alcuni font lo disegnano come emoji
-    const icon = color === 'error' ? '✗' : color === 'success' ? '✓' : '⚠︎'
+    const icon = tone === 'error' ? '✗' : tone === 'success' ? '✓' : '⚠︎'
 
     // Il worktree solo se il branch non ne porta gia' il nome, senza il suffisso casuale dell'app
     const wt = folder === null || name?.split('/').pop() === folder ? null : folder.replace(/-[0-9a-f]{6}$/, '')
@@ -783,13 +782,13 @@ export const register: Register = on => {
     // Barra e percentuale nel colore della soglia: giallo dal 50%, rosso dall'80%
     const meter = (percent: number) => {
       const [full, empty] = cells(percent)
-      const tone = percentColor(percent)
+      const shade = TONES[percentColor(percent)]
 
       return (
         <Text>
-          <Text color={tone}>{full}</Text>
+          <Text color={shade}>{full}</Text>
           <Text dimColor>{empty}</Text>
-          <Text color={tone}> {Math.round(percent)}%</Text>
+          <Text color={shade}> {Math.round(percent)}%</Text>
         </Text>
       )
     }
@@ -890,19 +889,19 @@ export const register: Register = on => {
           <Button key="session-id" plain dimColor label="📎" onPress={press => void copySessionId($, press.surface)} />
           <Box flexShrink={1}>
             <Text wrap="truncate-end">
-              {wt === null ? null : <Text color="warning">wt {wt} · </Text>}
+              {wt === null ? null : <Text color={CLAY}>wt {wt} · </Text>}
               <Text dimColor>{name ?? 'nessun branch'}</Text>
               {/* Nel terminale niente bottone: i worktree della chat stanno tutti sulla riga, ciascuno col suo ramo di partenza */}
               {chatWorktrees.length === 0 ? null : (
-                <Text color="warning">
+                <Text color={CLAY}>
                   {' · wt '}
                   {chatWorktrees.map(found => `${found.folder}${from(found)}`).join(', ')}
                 </Text>
               )}
               {work === null ? null : pending.length > 0 ? (
-                <Text color="warning"> · {pending.join(' · ')}</Text>
+                <Text color={TONES.warning}> · {pending.join(' · ')}</Text>
               ) : (
-                <Text color="success"> · pulito</Text>
+                <Text color={TONES.success}> · pulito</Text>
               )}
               {last === null ? null : (
                 <Text>
@@ -914,8 +913,8 @@ export const register: Register = on => {
                   {last.at ? <Text dimColor> {last.at}</Text> : null}
                 </Text>
               )}
-              {inProgress.length > 0 ? <Text color="warning"> · in corso: {inProgress.join(', ')}</Text> : null}
-              {isUnreviewed ? <Text color="warning"> · codice da rivedere</Text> : null}
+              {inProgress.length > 0 ? <Text color={TONES.warning}> · in corso: {inProgress.join(', ')}</Text> : null}
+              {isUnreviewed ? <Text color={TONES.warning}> · codice da rivedere</Text> : null}
             </Text>
           </Box>
         </Box>
@@ -966,10 +965,10 @@ export const register: Register = on => {
     const tickColor = isUltra ? ULTRACODE_COLOR : (EFFORT_COLORS[rank - 1] ?? PREFIX_COLOR)
     const frame = { flexDirection: 'column', flexGrow: 1, borderStyle: 'round', borderDimColor: true, paddingX: 1 } as const
 
-    // Un contatore dello stato git: verde a zero, giallo quando c'e' qualcosa da fare
+    // Un contatore dello stato git: arancio a zero, giallo quando c'e' qualcosa da fare
     const counter = (n: number, label: string) => (
       <Text>
-        <Text bold color={n === 0 ? 'success' : 'warning'}>
+        <Text bold color={n === 0 ? TONES.success : TONES.warning}>
           {n}
         </Text>{' '}
         <Text dimColor>{label}</Text>
@@ -988,7 +987,7 @@ export const register: Register = on => {
         {/* Valore e nota non cedono spazio: a restringersi e' la scheda Lavoro, che tronca il ramo */}
         <Box flexDirection="column" flexShrink={0}>
           {/* La percentuale sta dentro l'anello: accanto restano il nome e la nota */}
-          <Text color={percentColor(percent) === 'success' ? undefined : percentColor(percent)}>{label}</Text>
+          <Text color={percentColor(percent) === 'success' ? undefined : TONES[percentColor(percent)]}>{label}</Text>
           <Text dimColor>{note}</Text>
         </Box>
       </Box>
@@ -1023,7 +1022,7 @@ export const register: Register = on => {
           {/* minWidth a zero: senza, un nome lunghissimo allargherebbe la riga invece di troncarsi */}
           <Box flexShrink={1} minWidth={0}>
             <Text wrap="truncate-end">
-              {wt === null ? null : <Text color="warning">wt {wt} · </Text>}
+              {wt === null ? null : <Text color={CLAY}>wt {wt} · </Text>}
               {name === null ? (
                 <Text dimColor>nessun branch</Text>
               ) : (
@@ -1034,20 +1033,20 @@ export const register: Register = on => {
               )}
             </Text>
           </Box>
-          {/* Subito dopo il ramo i worktree di questa chat, in giallo: uno col nome e il ramo di partenza, piu' d'uno
+          {/* Subito dopo il ramo i worktree di questa chat, in arancio: uno col nome e il ramo di partenza, piu' d'uno
               un contatore che apre la scheda Worktree. Il riquadro riempie la riga e porta skill e 📎 a destra; a
               cedere spazio e' il ramo, non i worktree */}
           <Box flexGrow={1} flexShrink={0} columnGap={1} alignItems="center">
             {chatWorktrees.length === 0 ? null : <Svg source={WORKTREE_ICON} alt="Worktree" width={14} height={14} />}
             {chatWorktrees.length === 1 && chatWorktrees[0] !== undefined ? (
               <Text>
-                <Text color="warning">{chatWorktrees[0].folder}</Text>
+                <Text color={CLAY}>{chatWorktrees[0].folder}</Text>
                 <Text dimColor>{from(chatWorktrees[0])}</Text>
               </Text>
             ) : null}
             {chatWorktrees.length > 1 ? (
               <Button key="worktrees" plain onPress={() => void update($, isWorktreesOpen, open => !open)}>
-                <Text color="warning">
+                <Text color={CLAY}>
                   {chatWorktrees.length} worktree {isWorktreeListOpen ? '▾' : '▸'}
                 </Text>
               </Button>
@@ -1071,13 +1070,13 @@ export const register: Register = on => {
             {loadedSkills.map((skill, index) => {
               const cut = skill.lastIndexOf(':')
 
-              // Prefisso del plugin attenuato, skill di progetto in azzurro, ● verde su quelle caricate in questo
+              // Prefisso del plugin attenuato, skill di progetto in arancio, ● arancio su quelle caricate in questo
               // turno. Il separatore segue il nome, cosi' una riga andata a capo non comincia con un punto
               return (
                 <Text>
                   {cut < 0 ? null : <Text color={PREFIX_COLOR}>{skill.slice(0, cut + 1)}</Text>}
                   <Text color={fromRepo.includes(skill) ? REPO_SKILL_COLOR : undefined}>{skill.slice(cut + 1)}</Text>
-                  {newSkills.includes(skill) ? <Text color="success"> ●</Text> : null}
+                  {newSkills.includes(skill) ? <Text color={CLAY}> ●</Text> : null}
                   {index < loadedSkills.length - 1 ? <Text dimColor> ·</Text> : null}
                 </Text>
               )
@@ -1099,7 +1098,7 @@ export const register: Register = on => {
                 </Box>
                 <Box flexDirection="column" flexShrink={0}>
                   {chatWorktrees.map(found => (
-                    <Text color="warning">{found.folder}</Text>
+                    <Text color={CLAY}>{found.folder}</Text>
                   ))}
                 </Box>
                 <Box flexDirection="column" flexShrink={1} minWidth={0}>
@@ -1128,7 +1127,7 @@ export const register: Register = on => {
                   {name === '(detached)' ? null : work.isOnRemote ? (
                     counter(work.ahead ?? 0, 'da pushare')
                   ) : (
-                    <Text color="warning">non su origin</Text>
+                    <Text color={TONES.warning}>non su origin</Text>
                   )}
                   <Text>
                     <Text bold>{stashes}</Text> <Text dimColor>stash</Text>
@@ -1144,8 +1143,8 @@ export const register: Register = on => {
                 {last.at ? ` · ${last.at}` : ''}
               </Text>
             )}
-            {inProgress.length > 0 ? <Text color="warning">in corso: {inProgress.join(', ')}</Text> : null}
-            {isUnreviewed ? <Text color="warning">codice da rivedere</Text> : null}
+            {inProgress.length > 0 ? <Text color={TONES.warning}>in corso: {inProgress.join(', ')}</Text> : null}
+            {isUnreviewed ? <Text color={TONES.warning}>codice da rivedere</Text> : null}
           </Box>
           <Box {...frame}>
             {/* Il nome del modello fa da titolo della scheda; sotto l'anello chiudono tacche e livello */}

@@ -1,4 +1,5 @@
 // I mattoni delle animazioni dell'effort: sei tacche in un SVG 46x22, ognuna larga 5 e alta 12, poggiata a y 17
+import { WARM_GRAY } from './palette'
 
 export const SLOTS = 6
 
@@ -7,7 +8,8 @@ export const SLOTS = 6
 export const SECONDS = [0, 1.6, 1.3, 1.05, 0.85, 0.68]
 export const AMOUNT = [0, 0.45, 0.6, 0.75, 0.9, 1]
 
-export const OFF = 'fill="#888888" fill-opacity="0.35"'
+// Le tacche spente, nel grigio caldo della traccia degli anelli
+export const OFF = `fill="${WARM_GRAY}" fill-opacity="0.35"`
 // Un riflesso bianco sopra la tacca, invisibile finche' l'animazione non lo accende
 export const GLINT = 'fill="#ffffff" opacity="0"'
 
