@@ -9,6 +9,11 @@
       "name": "status-band",
       "source": "./status-band",
       "description": "Fascia sopra il prompt: ramo e stato git, worktree della chat, esito delle review, modello, contesto, effort, limiti, costo e skill; nell'app a tre schede con anelli, nel terminale a righe"
+    },
+    {
+      "name": "commit-graph",
+      "source": "./commit-graph",
+      "description": "Il grafo dei commit del repository della chat in un pannello accanto alla conversazione, stile Git Graph: dettaglio di ogni commit sotto la riga e azioni affidate a Claude"
     }
   ]
 }

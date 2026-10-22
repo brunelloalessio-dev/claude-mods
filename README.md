@@ -9,6 +9,7 @@ Una mod è un plugin fatto di hook: una cartella con un manifest e un modulo che
 | Mod | Cosa fa |
 | --- | --- |
 | [status-band](status-band/) | Fascia sopra il prompt: ramo e stato git, esito delle review, modello, contesto, effort, limiti, costo e skill. Nell'app a tre schede con anelli, nel terminale a righe |
+| [commit-graph](commit-graph/) | Il grafo dei commit del repository della chat in un pannello accanto alla conversazione, stile Git Graph: dettaglio di ogni commit sotto la riga e azioni affidate a Claude |
 
 ## Installare una mod
 
@@ -100,4 +101,4 @@ I tipi del motore non stanno nel repository, perché cambiano a ogni versione di
 
 ## Crediti
 
-`status-band` deriva da `fascia-gate` di Alessandro Pavan.
+`status-band` deriva da `fascia-gate` di Alessandro Pavan. `commit-graph` si ispira all'estensione Git Graph di mhutchie per VS Code.
