@@ -1,6 +1,6 @@
 {
   "name": "commit-graph",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Il grafo dei commit del repository della chat in un pannello accanto alla conversazione, stile Git Graph: dettaglio di ogni commit sotto la riga e azioni affidate a Claude",
   "author": {
     "name": "Alessio Brunello"

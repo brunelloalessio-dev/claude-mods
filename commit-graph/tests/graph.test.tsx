@@ -74,17 +74,28 @@ function answer(argv: readonly string[], commits: Fake[], branch: string): strin
 
 type On = Parameters<TestBody>[1]
 
-function engine(on: On, commits: Fake[], branch: string, filled: string[]) {
+// opened raccoglie i pannelli aperti, runs i comandi lanciati: servono a vedere che la mod resta ferma finché non la si apre
+function engine(on: On, commits: Fake[], branch: string, filled: string[], opened: string[] = [], runs: string[] = []) {
   on('command.register', () => ({ value: { command: 'grafo' } }))
-  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.open', (_, e) => {
+    opened.push(e.id)
+
+    return { value: { isPlaced: true } }
+  })
+  on('ui.panes', () => ({ value: opened.map(pane => ({ id: pane, title: 'Grafo git', isShown: true, isFocused: false, isPlaced: true })) }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   on('session.cwd', () => ({ value: '/repo/progetto/app' }))
+  on('turn.complete', () => ({ text: '' }))
   on('clock.now', () => ({ value: NOW * 1000 }))
   on('clock.every', () => ({ value: undefined }))
   on('ui.toast', () => ({ value: undefined }))
-  on('process.run', (_, e) => ({
-    value: { exitCode: 0, stdout: answer(e.argv, commits, branch), stderr: '', isStdoutTruncated: false, isStderrTruncated: false },
-  }))
+  on('process.run', (_, e) => {
+    runs.push(e.argv.join(' '))
+
+    return {
+      value: { exitCode: 0, stdout: answer(e.argv, commits, branch), stderr: '', isStdoutTruncated: false, isStderrTruncated: false },
+    }
+  })
   on('prompt.read', () => ({ value: { text: '', cursor: 0 } }))
   on('prompt.fill', (_, e) => {
     filled.push(e.text)
@@ -92,6 +103,36 @@ function engine(on: On, commits: Fake[], branch: string, filled: string[]) {
     return { isFilled: true, text: e.text, cursor: e.text.length }
   })
 }
+
+test('il pannello non si apre da solo: lo apre /grafo, e prima git non si legge', async ($, on) => {
+  const opened: string[] = []
+  const runs: string[] = []
+
+  engine(on, SMALL, 'feature', [], opened, runs)
+  await $.session.start({ cwd: '/repo/progetto/app', surface: 'desktop', isInteractive: true })
+  await $.turn.complete({ answer: '', durationMs: 1, isAborted: false, turnId: 't1', reason: 'answer' })
+
+  expect(opened).toEqual([])
+  expect(runs).toEqual([])
+
+  const done = await $.command.run({
+    command: 'grafo',
+    args: '',
+    origin: { kind: 'composer' },
+    presentation: { isFullscreen: true, columns: 57 },
+  })
+
+  expect(done.text).toBe('Grafo git aperto.')
+  expect(opened).toEqual(['commit-graph'])
+
+  // Aperto il pannello, la lettura parte: «Aggiorna» la aspetta, così il test non finisce a lettura in corso
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+
+  await ui.press({ key: 'aggiorna' })
+  expect(runs.length).toBeGreaterThan(0)
+  expect(await ui.find({ type: 'Text', text: /^Nuova schermata$/ })).toBeDefined()
+  await ui.unmount()
+})
 
 test('il grafo si disegna, un commit si apre sotto la riga e Spiega scrive nel prompt', async ($, on) => {
   const filled: string[] = []

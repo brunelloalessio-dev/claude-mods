@@ -1,6 +1,6 @@
 # commit-graph
 
-Il grafo dei commit del repository su cui lavora la chat, in un pannello accanto alla conversazione, sul modello dell'estensione Git Graph di VS Code. Nell'app desktop il pannello si aggancia a destra della chat e si apre da solo all'avvio; il comando `/grafo` lo riapre.
+Il grafo dei commit del repository su cui lavora la chat, in un pannello accanto alla conversazione, sul modello dell'estensione Git Graph di VS Code. Il pannello si apre solo quando lo chiedi, col comando `/grafo`; nell'app desktop si aggancia a destra della chat.
 
 ## Cosa mostra
 
@@ -28,7 +28,7 @@ In alto ci sono «Aggiorna», «Fetch» (`git fetch --all`), «Nascondi remoti»
 
 ## Quando si aggiorna
 
-A fine di ogni turno di Claude, dopo ogni comando git che Claude lancia, ogni minuto e col bottone «Aggiorna». Segue la cartella della chat: se la chat passa a un worktree o a un altro repository, il grafo lo segue.
+Mentre il pannello è aperto: a fine di ogni turno di Claude, dopo ogni comando git che Claude lancia, ogni minuto e col bottone «Aggiorna». Col pannello chiuso la mod non legge il repository. Segue la cartella della chat: se la chat passa a un worktree o a un altro repository, il grafo lo segue.
 
 ## Installazione
 

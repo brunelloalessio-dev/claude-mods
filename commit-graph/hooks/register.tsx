@@ -425,19 +425,30 @@ async function markChatCommits($: EngineInterface, root: string, before: string 
 // Il timer di un caricamento precedente della mod: se ne tiene uno solo
 let ticker: Timer | null = null
 
+// Il registro dei pannelli è del motore, non del modulo: vale anche dopo un ricaricamento della mod
+async function isPaneOpen($: EngineInterface): Promise<boolean> {
+  return (await $.ui.panes()).some(pane => pane.id === PANE)
+}
+
+// Col pannello chiuso git non si legge: la mod resta ferma finché la persona non lo apre
+async function refreshIfOpen($: EngineInterface): Promise<void> {
+  if (await isPaneOpen($)) {
+    await refresh($)
+  }
+}
+
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     const started = await next(e)
 
     // Niente controllo su e.isInteractive: l'app desktop avvia la sessione da programma e lì vale false,
-    // quindi il controllo spegneva la mod proprio dove serve
+    // quindi il controllo spegneva la mod proprio dove serve.
+    // Il pannello non si apre da solo: lo apre /grafo, quando la persona lo chiede
     await $.command.register({ name: 'grafo', description: 'Apre il grafo git del repository della chat' })
-    void refresh($)
-    // Nell'app desktop il pannello si aggancia a destra della chat
-    void $.ui.open({ id: PANE, title: TITLE })
+    void refreshIfOpen($)
     // Commit, fetch e cambi di ramo fatti fuori dalla chat arrivano comunque entro un minuto
     ticker?.cancel()
-    ticker = $.clock.every(60_000, () => void refresh($))
+    ticker = $.clock.every(60_000, () => void refreshIfOpen($))
 
     return started
   })
@@ -453,7 +464,7 @@ export const register: Register = on => {
     const done = await next(e)
 
     if (e.agentId === undefined) {
-      void refresh($)
+      void refreshIfOpen($)
     }
 
     return done
@@ -476,7 +487,7 @@ export const register: Register = on => {
       await markChatCommits($, root, before, startedAt).catch(() => undefined)
     }
 
-    void refresh($)
+    void refreshIfOpen($)
 
     return done
   })
